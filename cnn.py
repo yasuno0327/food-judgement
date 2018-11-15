@@ -1,5 +1,7 @@
+import tensorflow as tf
 import keras
 from keras.models import Sequential, Model
+from keras.callbacks import ModelCheckpoint
 from keras.layers import Dense, Dropout, Input, Flatten, Activation
 from keras.layers import Conv2D, MaxPooling2D
 from keras.applications.vgg16 import VGG16
@@ -9,6 +11,10 @@ from PIL import Image
 import numpy as np
 import re
 import os
+
+config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 56} )
+sess = tf.Session(config=config)
+keras.backend.set_session(sess)
 
 train_images = [] # トレーニングデータ格納用配列
 train_labels = [] # トレーニングラベル格納用配列
@@ -53,30 +59,49 @@ input_tensor = Input(shape=(140,140,3))
 
 vgg16 = VGG16(include_top=False, weights='imagenet', input_tensor=input_tensor)
 
-model = Sequential()
+vgg16 = VGG16(include_top=False, weights='imagenet', input_tensor=input_tensor)
 
-model.add(Conv2D(filters=32, kernel_size=(28,28)))
-model.add(Activation("relu"))
-model.add(Conv2D(filters=32, kernel_size=(28,28)))
-model.add(Activation("relu"))
-model.add(MaxPooling2D(pool_size=(2,2)))
-model.add(Dropout(0.3))
+top_model = Sequential()
 
-model.add(Conv2D(64, (28, 28), padding="same"))
-model.add(Activation("relu"))
-model.add(Conv2D(64, (28,28)))
-model.add(Activation("relu"))
-model.add(MaxPooling2D(pool_size=(2,2)))
-model.add(Dropout(0.3))
+top_model.add(Conv2D(filters=32, kernel_size=(28,28)))
+top_model.add(Activation("relu"))
+top_model.add(Conv2D(filters=32, kernel_size=(28,28)))
+top_model.add(Activation("relu"))
+top_model.add(MaxPooling2D(pool_size=(2,2)))
+top_model.add(Dropout(0.3))
 
-model.add(Flatten())
-model.add(Dense(512))
-model.add(Activation("relu"))
-model.add(Dropout(0.5))
-model.add(Dense(101))
-model.add(Activation("softmax"))
+top_model.add(Conv2D(64, (28, 28), padding="same"))
+top_model.add(Activation("relu"))
+top_model.add(Conv2D(64, (28,28)))
+top_model.add(Activation("relu"))
+top_model.add(MaxPooling2D(pool_size=(2,2)))
+top_model.add(Dropout(0.3))
+
+top_model.add(Flatten())
+top_model.add(Dense(512))
+top_model.add(Activation("relu"))
+top_model.add(Dropout(0.5))
+top_model.add(Dense(101))
+top_model.add(Activation("softmax"))
+
+model = Model(inputs=vgg16.input, outputs=top_model(vgg16.output))
+
+for layer in model.layers[:19]:
+    layer.trainable = False
+
+google_drive_dir = 'gdrive/My Drive'
+base_file_name = 'test1'
+
+# Google Driveに逐次モデルのスナップショットを保存
+checkpointer = ModelCheckpoint(filepath = google_drive_dir + base_file_name + '.{epoch:02d}-{val_loss:.2f}.hdf5', verbose=1, save_best_only=True, monitor='val_acc', mode='max')
 
 model.fit(train_images, train_labels, batch_size=128, epochs=3)
+
+model.compile(
+    optimizer=tf.train.RMSPropOptimizer(learning_rate=0.01),
+    loss='categorical_crossentropy',
+    metrics=['categorical_accuracy']
+)
 
 import json
 json_model = model.to_json()
