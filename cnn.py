@@ -1,4 +1,3 @@
-import tensorflow as tf
 import keras
 from keras.models import Sequential, Model
 from keras.callbacks import ModelCheckpoint
@@ -12,9 +11,8 @@ import numpy as np
 import re
 import os
 
-config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 56} )
-sess = tf.Session(config=config)
-keras.backend.set_session(sess)
+import tensorflow as tf
+tf.test.gpu_device_name()
 
 train_images = [] # トレーニングデータ格納用配列
 train_labels = [] # トレーニングラベル格納用配列
@@ -56,8 +54,6 @@ test_labels = np_utils.to_categorical(test_labels, 101)
 input_tensor = Input(shape=(140,140,3))
 
 # Define model
-
-vgg16 = VGG16(include_top=False, weights='imagenet', input_tensor=input_tensor)
 
 vgg16 = VGG16(include_top=False, weights='imagenet', input_tensor=input_tensor)
 
